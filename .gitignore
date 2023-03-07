@@ -1,0 +1,9 @@
+# Python things
+__pycache__
+.venv
+
+# Original gsmagic app reference directory
+gsmagic
+
+# Local dev doc
+todo
