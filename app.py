@@ -7,9 +7,6 @@ def startApp():
     app = QApplication([])
 
     mainWindow = MainWindow()
-    mainWindow.setGeometry(50, 50, 320, 200)
-    mainWindow.setWindowTitle('GS Neo Magic')
-
     mainWindow.show()
 
     return app.exec()
