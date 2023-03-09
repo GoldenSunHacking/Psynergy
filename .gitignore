@@ -3,7 +3,8 @@ __pycache__
 .venv
 
 # Original gsmagic app reference directory
-gsmagic
+gsmagic/
 
-# Local dev doc
+# Local dev things
 todo
+rom/
