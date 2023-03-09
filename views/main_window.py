@@ -85,6 +85,7 @@ class MainWindow(QMainWindow):
         'Opens a ROM file from a file path.'
         try:
             state.loaded_rom = Rom(filepath)
+            self.applyView(makeEditorTabsView())
         except Exception as e:
             # TODO better error handling. Probably print to window
             print(e)
