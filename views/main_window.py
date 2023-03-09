@@ -23,14 +23,24 @@ from .rom_info import makeRomInfoView
 from .state import state
 
 class MainWindow(QMainWindow):
+    '''The top-level window.
+    Contains the top menu bar and the editor tabs.
+    Can open ROM files via the menu or drag+drop.
+    '''
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle('GS Neo Magic')
         self.setGeometry(50, 50, 320, 200)
         self.setAcceptDrops(True)
 
+        # Sets up a main layout we can add and remove views (aka widgets) from.
         self.setCentralWidget(QWidget())
-        # TODO need to know what we have opened here to select the view.
+        layout = QVBoxLayout()
+        layout.addWidget(self.makeMenuBar())
+        self.centralWidget().setLayout(layout)
+
+        self.current_view = None
         self.applyView(makeDefaultView())
 
     def dragEnterEvent(self, e: QDragEnterEvent) -> None:
@@ -47,13 +57,13 @@ class MainWindow(QMainWindow):
 
     def applyView(self, viewWidget: QWidget) -> None:
         'Replaces the content of the main window with the given Widget.'
-        layout = QVBoxLayout()
-        layout.addWidget(self.makeMenuBar(), 0)
-        layout.addWidget(viewWidget, 100, Qt.AlignmentFlag.AlignTop)
+        if self.current_view:
+            self.centralWidget().layout().removeWidget(self.current_view)
 
-        if self.centralWidget().layout():
-            sip.delete(self.centralWidget().layout())
-        self.centralWidget().setLayout(layout)
+        self.current_view = viewWidget
+        self.centralWidget().layout().addWidget(
+            viewWidget, 100, Qt.AlignmentFlag.AlignTop
+        )
 
     def makeMenuBar(self) -> QMenuBar:
         'Creates the menu bar widget for the top of the main window.'
