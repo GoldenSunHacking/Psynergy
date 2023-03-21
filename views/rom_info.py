@@ -1,14 +1,17 @@
 from PyQt5.QtWidgets import (
     QGridLayout,
+    QGroupBox,
     QLabel,
 )
 
 from .state import state
-from .widgets import ReadOnlyLine, TabGroupBox
+from .widgets import ReadOnlyLine
 
-class RomInfoTab(TabGroupBox):
+class RomInfoTab(QGroupBox):
     'Displays some basic information about the loaded ROM.'
     def __init__(self):
+        super().__init__()
+
         pathLine    = ReadOnlyLine(state.loaded_rom.file_path)
         nameLine    = ReadOnlyLine(state.loaded_rom.game_name)
         intNameLine = ReadOnlyLine(state.loaded_rom.game_internal_name)
@@ -38,4 +41,4 @@ class RomInfoTab(TabGroupBox):
         layout.addWidget(QLabel('CRC32:'),     5, 0)
         layout.addWidget(crc32Line,            5, 1)
 
-        super().__init__(layout)
+        self.setLayout(layout)
