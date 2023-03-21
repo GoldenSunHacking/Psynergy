@@ -1,6 +1,5 @@
 from os.path import dirname
 from pathlib import Path
-from PyQt5 import sip
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import (
     QDragEnterEvent,
@@ -19,7 +18,7 @@ from PyQt5.QtWidgets import (
 
 from data.rom_loader import Rom
 
-from .rom_info import makeRomInfoView
+from .rom_info import RomInfoTab
 from .state import state
 
 class MainWindow(QMainWindow):
@@ -110,8 +109,9 @@ def makeDefaultView() -> QGroupBox:
     return editorGroupBox
 
 def makeEditorTabsView() -> QTabWidget:
+    # TODO disable tabs for editors we don't support for the loaded game
     bar = QTabWidget()
-    bar.addTab(makeRomInfoView(), 'ROM')
+    bar.addTab(RomInfoTab(), 'ROM')
     bar.addTab(QLabel('TODO'), 'Map')
     bar.addTab(QLabel('TODO'), 'Text Editor')
     bar.addTab(QLabel('TODO'), 'Shops')
