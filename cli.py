@@ -4,12 +4,13 @@ from signal import signal, SIGINT
 from sys import exit
 
 from app import PsynergyApp
+from info import PROGRAM_DESCRIPTION, PROGRAM_NAME, PROGRAM_VERSION
 
 arg_parser = ArgumentParser(
-    description='Graphical editor for Golden Sun and other Camelot games.',
-    prog='psynergy',
+    description=PROGRAM_DESCRIPTION,
+    prog=PROGRAM_NAME.lower(),
 )
-arg_parser.add_argument('-v', '--version', action='version', version='0.0.0-dev')
+arg_parser.add_argument('-v', '--version', action='version', version=PROGRAM_VERSION)
 arg_parser.add_argument('file', type=Path, nargs='?', help='ROM file to open.')
 
 if __name__ == '__main__':

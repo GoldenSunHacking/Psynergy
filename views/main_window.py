@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (
 )
 
 from data.rom_loader import Rom
+from info import PROGRAM_NAME
 
 from .rom_info import RomInfoTab
 from .state import state
@@ -31,7 +32,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         # TODO make contents stretch to fit window size
-        self.setWindowTitle('GS Neo Magic')
+        self.setWindowTitle(PROGRAM_NAME)
         self.setGeometry(50, 50, 600, 300)
         self.setAcceptDrops(True)
 
