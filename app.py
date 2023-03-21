@@ -4,10 +4,17 @@ from views.main_window import MainWindow
 # TODO we will probably want to create a state object we can read from for the UI.
 # Saved config, themes, window locations, etc... go here
 
-class MagicApp(QApplication):
+class PsynergyApp(QApplication):
+    def __init__(self, argv: 'list[str]'):
+        super().__init__([])
+        self.main_window = MainWindow()
+
+        if len(argv) > 0:
+            rom_file = argv[0]
+            self.main_window.openRomFile(rom_file)
+
     def exec(self):
-        mainWindow = MainWindow()
-        mainWindow.show()
+        self.main_window.show()
 
         # See event() below.
         self.startTimer(200)

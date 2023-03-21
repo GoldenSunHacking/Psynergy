@@ -95,6 +95,7 @@ class MainWindow(QMainWindow):
     def openRomFile(self, filepath: str) -> None:
         'Opens a ROM file from a file path.'
         try:
+            # TODO needs some kind of detection for invalid files from CLI
             state.loaded_rom = Rom(filepath)
             self.applyView(makeEditorTabsView())
         except Exception as e:
