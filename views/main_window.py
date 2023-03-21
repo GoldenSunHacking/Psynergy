@@ -20,6 +20,7 @@ from data.rom_loader import Rom
 
 from .rom_info import RomInfoTab
 from .state import state
+from .text_editor import TextEditTab
 
 class MainWindow(QMainWindow):
     '''The top-level window.
@@ -29,8 +30,9 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        # TODO make contents stretch to fit window size
         self.setWindowTitle('GS Neo Magic')
-        self.setGeometry(50, 50, 320, 200)
+        self.setGeometry(50, 50, 600, 300)
         self.setAcceptDrops(True)
 
         # Sets up a main layout we can add and remove views (aka widgets) from.
@@ -113,7 +115,7 @@ def makeEditorTabsView() -> QTabWidget:
     bar = QTabWidget()
     bar.addTab(RomInfoTab(), 'ROM')
     bar.addTab(QLabel('TODO'), 'Map')
-    bar.addTab(QLabel('TODO'), 'Text Editor')
+    bar.addTab(TextEditTab(), 'Text Editor')
     bar.addTab(QLabel('TODO'), 'Shops')
     bar.addTab(QLabel('TODO'), 'Abilities')
     bar.addTab(QLabel('TODO'), 'Party')
