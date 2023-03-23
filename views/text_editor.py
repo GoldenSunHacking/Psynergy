@@ -1,12 +1,12 @@
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLineEdit,
-    QTableView,
     QTextEdit,
     QVBoxLayout,
 )
+
+from .widgets import StringList
 
 class TextEditTab(QGroupBox):
     '''Displays the list of all strings in the game,
@@ -34,33 +34,10 @@ class TextEditTab(QGroupBox):
         searchBar.setPlaceholderText('Search strings')
         return searchBar
 
-    def makeStringTable(self) -> QTableView:
+    def makeStringTable(self) -> StringList:
         # TODO obviously load real data
         items = ['Test item', 'Something cool here', 'Hi mom'] * 2000
-
-        listModel = QStandardItemModel()
-        listModel.setColumnCount(2)
-        listModel.setHorizontalHeaderItem(0, QStandardItem('ID'))
-        listModel.setHorizontalHeaderItem(1, QStandardItem('String'))
-
-        for index, string in enumerate(items):
-            indexItem = QStandardItem(str(index))
-            stringItem = QStandardItem(string)
-
-            indexItem.setEditable(False)
-            stringItem.setEditable(False)
-
-            listModel.setItem(index, 0, indexItem)
-            listModel.setItem(index, 1, stringItem)
-
-        # TODO make ID column fit contents and be non-resizeable.
-        # TODO make string column stretch to fit area.
-        tableView = QTableView()
-        tableView.setAlternatingRowColors(True)
-        tableView.verticalHeader().hide()
-        tableView.setModel(listModel)
-
-        return tableView
+        return StringList(items)
 
     def makePreviewBox(self) -> QTextEdit:
         # TODO make this look like a text box from the game, with the proper font.
