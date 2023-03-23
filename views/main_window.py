@@ -1,5 +1,7 @@
 from os.path import dirname
 from pathlib import Path
+from typing import cast
+
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import (
     QDragEnterEvent,
@@ -63,7 +65,7 @@ class MainWindow(QMainWindow):
             self.centralWidget().layout().removeWidget(self.current_view)
 
         self.current_view = viewWidget
-        self.centralWidget().layout().addWidget(
+        cast(QVBoxLayout, self.centralWidget().layout()).addWidget(
             viewWidget, 100, Qt.AlignmentFlag.AlignTop
         )
 
@@ -87,7 +89,8 @@ class MainWindow(QMainWindow):
         filename = QFileDialog().getOpenFileName(
             caption='Open a GBA/NDS File',
             filter='GBA/NDS file (*.gba *.nds)',
-            directory=state.working_dir,
+            # Rationale: this parameter properly handles None
+            directory=state.working_dir, # type: ignore[arg-type]
         )[0]
         # Save this so subsequent file dialogs can open straight to this dir.
         state.working_dir = dirname(filename)

@@ -1,11 +1,14 @@
+from typing import List
+
 from PyQt5.QtWidgets import QApplication
+
 from views.main_window import MainWindow
 
 # TODO we will probably want to create a state object we can read from for the UI.
 # Saved config, themes, window locations, etc... go here
 
 class PsynergyApp(QApplication):
-    def __init__(self, argv: 'list[str]'):
+    def __init__(self, argv: List[str]):
         super().__init__([])
         self.main_window = MainWindow()
 

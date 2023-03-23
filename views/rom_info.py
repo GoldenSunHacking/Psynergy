@@ -1,8 +1,12 @@
+from typing import cast
+
 from PyQt5.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QLabel,
 )
+
+from data.rom_loader import Rom
 
 from .state import state
 from .widgets import ReadOnlyLine
@@ -12,12 +16,13 @@ class RomInfoTab(QGroupBox):
     def __init__(self):
         super().__init__()
 
-        pathLine    = ReadOnlyLine(state.loaded_rom.file_path)
-        nameLine    = ReadOnlyLine(state.loaded_rom.game_name)
-        intNameLine = ReadOnlyLine(state.loaded_rom.game_internal_name)
-        gameIdLine  = ReadOnlyLine(state.loaded_rom.game_id)
-        sizeLine    = ReadOnlyLine(str(len(state.loaded_rom.rom_binary_data)))
-        crc32Line   = ReadOnlyLine(state.loaded_rom.crc32)
+        loaded_rom = cast(Rom, state.loaded_rom)
+        pathLine    = ReadOnlyLine(loaded_rom.file_path)
+        nameLine    = ReadOnlyLine(loaded_rom.game_name)
+        intNameLine = ReadOnlyLine(loaded_rom.game_internal_name)
+        gameIdLine  = ReadOnlyLine(loaded_rom.game_id)
+        sizeLine    = ReadOnlyLine(str(len(loaded_rom.rom_binary_data)))
+        crc32Line   = ReadOnlyLine(loaded_rom.crc32)
 
         layout = QGridLayout()
 
