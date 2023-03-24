@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PyQt5.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
@@ -5,6 +7,8 @@ from PyQt5.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
 )
+
+from data.optional import Option
 
 from .widgets import StringList
 
@@ -15,18 +19,24 @@ class TextEditTab(QGroupBox):
     def __init__(self):
         super().__init__()
 
+        self.editingItem: Optional[StringList.Cell] = None
+
+        self.searchBar   = self.makeSearchBar()
+        self.stringTable = self.makeStringTable()
+        self.editBox     = self.makeEditBox()
+        self.previewBox  = self.makePreviewBox()
+
+        self.connectSignals()
+
         leftColLayout = QVBoxLayout()
-        leftColLayout.addWidget(self.makeSearchBar())
-        leftColLayout.addWidget(self.makeStringTable())
-
+        leftColLayout.addWidget(self.searchBar)
+        leftColLayout.addWidget(self.stringTable)
         rightColLayout = QVBoxLayout()
-        rightColLayout.addWidget(self.makePreviewBox())
-        rightColLayout.addWidget(self.makeEditBox())
-
+        rightColLayout.addWidget(self.previewBox)
+        rightColLayout.addWidget(self.editBox)
         paneLayout = QHBoxLayout()
         paneLayout.addLayout(leftColLayout)
         paneLayout.addLayout(rightColLayout)
-
         self.setLayout(paneLayout)
 
     def makeSearchBar(self) -> QLineEdit:
@@ -37,7 +47,13 @@ class TextEditTab(QGroupBox):
     def makeStringTable(self) -> StringList:
         # TODO obviously load real data
         items = ['Test item', 'Something cool here', 'Hi mom'] * 2000
-        return StringList(items)
+        stringList = StringList(items)
+        return stringList
+
+    def makeEditBox(self) -> QTextEdit:
+        editBox = QTextEdit()
+        editBox.setPlaceholderText('Select string to edit')
+        return editBox
 
     def makePreviewBox(self) -> QTextEdit:
         # TODO make this look like a text box from the game, with the proper font.
@@ -46,7 +62,17 @@ class TextEditTab(QGroupBox):
         previewBox.setPlaceholderText('In-game preview')
         return previewBox
 
-    def makeEditBox(self) -> QTextEdit:
-        editBox = QTextEdit()
-        editBox.setPlaceholderText('Select string to edit')
-        return editBox
+    def connectSignals(self):
+        'Wires widget signals together so they can update each other.'
+
+        # Selecting an item from the table should load it for editing.
+        def loadItemForEditing(itemOpt: Option[StringList.Cell]) -> None:
+            self.editingItem = itemOpt.getOrRaise()
+            self.editBox.setText(self.editingItem.text())
+        self.stringTable.selectionModel().selectedItemChanged.connect(loadItemForEditing)
+
+        # Reflect changes to the edited string in the preview box.
+        def setPreview() -> None:
+            self.previewBox.setText(self.editBox.toPlainText())
+        self.editBox.textChanged.connect(setPreview)
+
