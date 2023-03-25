@@ -85,11 +85,16 @@ class TextEditTab(QGroupBox):
         self.stringTable.selectionModel().selectedItemChanged.connect(onItemSelected)
 
         # Reflect changes to the edited string in the preview box.
-        def onItemEdited() -> None:
+        def onEditBoxChanged() -> None:
             self.previewBox.setText(self.editBox.toPlainText())
-            self.keepButton.setDisabled(False)
-        self.editBox.textChanged.connect(onItemEdited)
+        self.editBox.textChanged.connect(onEditBoxChanged)
 
+        # Only enable "keep" button when text is modified.
+        def onItemEdited() -> None:
+            self.keepButton.setDisabled(False)
+        self.editBox.userEditedText.connect(onItemEdited)
+
+        # Apply edited string to table when "keep" is clicked.
         def onKeepButtonClicked() -> None:
             if self.editingItem is not None:
                 self.editingItem.setText(self.editBox.toPlainText())
@@ -106,7 +111,9 @@ class EditBox(QTextEdit):
     validationFailure = pyqtSignal(str)
     'Signal for when an invalid character is entered.'
 
-    # TODO we need a signal for "modified" so modifications can be differentiated from initial loads
+    userEditedText = pyqtSignal()
+    '''Signal for when a user directly edits text.
+    Useful to differentiate between edits and loads via `setText()`'''
 
     def __init__(self):
         super().__init__()
@@ -116,10 +123,13 @@ class EditBox(QTextEdit):
 
         self._charWhitelist: Optional[str] = None
         self._lastGoodText: Optional[str] = None
+        self._setTextCausedChange = False
 
+        self.textChanged.connect(self._maybeFireUserEditSignal)
         self.textChanged.connect(self._clearInvalidChars)
 
     def setText(self, text: str) -> None:
+        self._setTextCausedChange = True # Needs to happen before super fires textChanged signal
         super().setText(text)
         self.setDisabled(False)
 
@@ -144,3 +154,9 @@ class EditBox(QTextEdit):
             self.validationFailure.emit(f'Disallowed character entered: {badChar}')
         else:
             self._lastGoodText = curText
+
+    def _maybeFireUserEditSignal(self):
+        if self._setTextCausedChange:
+            self._setTextCausedChange = False
+        elif self.toPlainText() != self._lastGoodText:
+            self.userEditedText.emit()
