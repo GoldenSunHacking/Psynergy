@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLineEdit,
+    QPushButton,
     QTextEdit,
     QVBoxLayout,
 )
@@ -26,6 +27,7 @@ class TextEditTab(QGroupBox):
         self.stringTable = self.makeStringTable()
         self.editBox     = self.makeEditBox()
         self.previewBox  = self.makePreviewBox()
+        self.keepButton  = self.makeKeepButton()
 
         self.connectSignals()
 
@@ -35,6 +37,7 @@ class TextEditTab(QGroupBox):
         rightColLayout = QVBoxLayout()
         rightColLayout.addWidget(self.previewBox)
         rightColLayout.addWidget(self.editBox)
+        rightColLayout.addWidget(self.keepButton)
         paneLayout = QHBoxLayout()
         paneLayout.addLayout(leftColLayout)
         paneLayout.addLayout(rightColLayout)
@@ -58,6 +61,11 @@ class TextEditTab(QGroupBox):
         editBox.validationFailure.connect(lambda msg: print(msg))
         return editBox
 
+    def makeKeepButton(self) -> QPushButton:
+        button = QPushButton('Keep changes')
+        button.setDisabled(True)
+        return button
+
     def makePreviewBox(self) -> QTextEdit:
         # TODO make this look like a text box from the game, with the proper font.
         previewBox = QTextEdit()
@@ -70,15 +78,24 @@ class TextEditTab(QGroupBox):
         'Wires widget signals together so they can update each other.'
 
         # Selecting an item from the table should load it for editing.
-        def loadItemForEditing(itemOpt: Option[StringList.Cell]) -> None:
+        def onItemSelected(itemOpt: Option[StringList.Cell]) -> None:
+            self.keepButton.setDisabled(True)
             self.editingItem = itemOpt.getOrRaise()
             self.editBox.setText(self.editingItem.text())
-        self.stringTable.selectionModel().selectedItemChanged.connect(loadItemForEditing)
+        self.stringTable.selectionModel().selectedItemChanged.connect(onItemSelected)
 
         # Reflect changes to the edited string in the preview box.
-        def setPreview() -> None:
+        def onItemEdited() -> None:
             self.previewBox.setText(self.editBox.toPlainText())
-        self.editBox.textChanged.connect(setPreview)
+            self.keepButton.setDisabled(False)
+        self.editBox.textChanged.connect(onItemEdited)
+
+        def onKeepButtonClicked() -> None:
+            if self.editingItem is not None:
+                self.editingItem.setText(self.editBox.toPlainText())
+            self.keepButton.setDisabled(True)
+        self.keepButton.clicked.connect(onKeepButtonClicked)
+
 
 class EditBox(QTextEdit):
     '''A control for editing a game string.
@@ -88,6 +105,8 @@ class EditBox(QTextEdit):
 
     validationFailure = pyqtSignal(str)
     'Signal for when an invalid character is entered.'
+
+    # TODO we need a signal for "modified" so modifications can be differentiated from initial loads
 
     def __init__(self):
         super().__init__()
