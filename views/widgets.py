@@ -9,6 +9,7 @@ from PyQt5.QtCore import (
 )
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtWidgets import (
+    QHeaderView,
     QLineEdit,
     QTableView,
 )
@@ -45,9 +46,9 @@ class StringList(QTableView):
         def __init__(self):
             super().__init__()
             self.setColumnCount(2)
-            self.setHorizontalHeaderItem(0, QStandardItem('ID'))
+            self.setHorizontalHeaderItem(StringList.Column.ID, QStandardItem('ID'))
             # TODO possibly allow overriding this label
-            self.setHorizontalHeaderItem(1, QStandardItem('String'))
+            self.setHorizontalHeaderItem(StringList.Column.VALUE, QStandardItem('String'))
 
         def itemFromIndex(self, index: QModelIndex) -> 'StringList.Cell':
             return cast(StringList.Cell, super().itemFromIndex(index))
@@ -72,11 +73,9 @@ class StringList(QTableView):
             # Rationale: parent.selectedItemChanged is Callable, idk why mypy isn't seeing that.
             self.selectedItemChanged.connect(parent.selectedItemChanged) # type: ignore[arg-type]
 
-
     def __init__(self, items: List[str]):
         super().__init__()
-        # TODO make ID column fit contents and be non-resizeable.
-        # TODO make string column stretch to fit area.
+        self.horizontalHeader().setStretchLastSection(True)
         self.setAlternatingRowColors(True)
         self.setSelectionMode(QTableView.SelectionMode.SingleSelection)
         self.verticalHeader().hide()
@@ -88,6 +87,10 @@ class StringList(QTableView):
 
         self.setModel(model)
         self.setSelectionModel(StringList.SelectionModel(model, self))
+        self.horizontalHeader().setSectionResizeMode(
+            StringList.Column.ID,
+            QHeaderView.ResizeMode.ResizeToContents,
+        )
 
     def model(self) -> 'StringList.Model':
         'Functionally equivalent to `QTableView.model()`. Just changes return type.'
