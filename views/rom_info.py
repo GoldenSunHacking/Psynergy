@@ -16,7 +16,7 @@ class RomInfoTab(QGroupBox):
     def __init__(self):
         super().__init__()
 
-        loaded_rom = cast(Rom, state.loaded_rom)
+        loaded_rom = cast(Rom, state.loadedRom)
         pathLine    = ReadOnlyLine(loaded_rom.file_path)
         nameLine    = ReadOnlyLine(loaded_rom.game_name)
         intNameLine = ReadOnlyLine(loaded_rom.game_internal_name)

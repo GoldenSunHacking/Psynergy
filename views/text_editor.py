@@ -21,52 +21,52 @@ class TextEditTab(QGroupBox):
     def __init__(self):
         super().__init__()
 
-        self.editingItem: Optional[StringList.Cell] = None
+        self._editingItem: Optional[StringList.Cell] = None
 
-        self.searchBar   = self.makeSearchBar()
-        self.stringTable = self.makeStringTable()
-        self.editBox     = self.makeEditBox()
-        self.previewBox  = self.makePreviewBox()
-        self.keepButton  = self.makeKeepButton()
+        self._searchBar   = self._makeSearchBar()
+        self._stringTable = self._makeStringTable()
+        self._editBox     = self._makeEditBox()
+        self._previewBox  = self._makePreviewBox()
+        self._keepButton  = self._makeKeepButton()
 
         self.connectSignals()
 
         leftColLayout = QVBoxLayout()
-        leftColLayout.addWidget(self.searchBar)
-        leftColLayout.addWidget(self.stringTable)
+        leftColLayout.addWidget(self._searchBar)
+        leftColLayout.addWidget(self._stringTable)
         rightColLayout = QVBoxLayout()
-        rightColLayout.addWidget(self.previewBox)
-        rightColLayout.addWidget(self.editBox)
-        rightColLayout.addWidget(self.keepButton)
+        rightColLayout.addWidget(self._previewBox)
+        rightColLayout.addWidget(self._editBox)
+        rightColLayout.addWidget(self._keepButton)
         paneLayout = QHBoxLayout()
         paneLayout.addLayout(leftColLayout)
         paneLayout.addLayout(rightColLayout)
         self.setLayout(paneLayout)
 
-    def makeSearchBar(self) -> QLineEdit:
+    def _makeSearchBar(self) -> QLineEdit:
         searchBar = QLineEdit()
         searchBar.setPlaceholderText('Search strings')
         return searchBar
 
-    def makeStringTable(self) -> StringList:
+    def _makeStringTable(self) -> StringList:
         # TODO obviously load real data
         items = ['Test item', 'Something cool here', 'Hi mom'] * 2000
         stringList = StringList(items)
         return stringList
 
-    def makeEditBox(self) -> 'EditBox':
+    def _makeEditBox(self) -> 'EditBox':
         editBox = EditBox()
         # TODO apply real whitelist for loaded game
         editBox.setWhitelist('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ')
         editBox.validationFailure.connect(lambda msg: print(msg))
         return editBox
 
-    def makeKeepButton(self) -> QPushButton:
+    def _makeKeepButton(self) -> QPushButton:
         button = QPushButton('Keep changes')
         button.setDisabled(True)
         return button
 
-    def makePreviewBox(self) -> QTextEdit:
+    def _makePreviewBox(self) -> QTextEdit:
         # TODO make this look like a text box from the game, with the proper font.
         previewBox = QTextEdit()
         previewBox.setDisabled(True)
@@ -76,30 +76,29 @@ class TextEditTab(QGroupBox):
 
     def connectSignals(self):
         'Wires widget signals together so they can update each other.'
-
         # Selecting an item from the table should load it for editing.
         def onItemSelected(itemOpt: Option[StringList.Cell]) -> None:
-            self.keepButton.setDisabled(True)
-            self.editingItem = itemOpt.getOrRaise()
-            self.editBox.setText(self.editingItem.text())
-        self.stringTable.selectionModel().selectedItemChanged.connect(onItemSelected)
+            self._keepButton.setDisabled(True)
+            self._editingItem = itemOpt.getOrRaise()
+            self._editBox.setText(self._editingItem.text())
+        self._stringTable.selectionModel().selectedItemChanged.connect(onItemSelected)
 
         # Reflect changes to the edited string in the preview box.
         def onEditBoxChanged() -> None:
-            self.previewBox.setText(self.editBox.toPlainText())
-        self.editBox.textChanged.connect(onEditBoxChanged)
+            self._previewBox.setText(self._editBox.toPlainText())
+        self._editBox.textChanged.connect(onEditBoxChanged)
 
         # Only enable "keep" button when text is modified.
         def onItemEdited() -> None:
-            self.keepButton.setDisabled(False)
-        self.editBox.userEditedText.connect(onItemEdited)
+            self._keepButton.setDisabled(False)
+        self._editBox.userEditedText.connect(onItemEdited)
 
         # Apply edited string to table when "keep" is clicked.
         def onKeepButtonClicked() -> None:
-            if self.editingItem is not None:
-                self.editingItem.setText(self.editBox.toPlainText())
-            self.keepButton.setDisabled(True)
-        self.keepButton.clicked.connect(onKeepButtonClicked)
+            if self._editingItem is not None:
+                self._editingItem.setText(self._editBox.toPlainText())
+            self._keepButton.setDisabled(True)
+        self._keepButton.clicked.connect(onKeepButtonClicked)
 
 
 class EditBox(QTextEdit):

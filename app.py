@@ -10,14 +10,14 @@ from views.main_window import MainWindow
 class PsynergyApp(QApplication):
     def __init__(self, argv: List[str]):
         super().__init__([])
-        self.main_window = MainWindow()
+        self._mainWindow = MainWindow()
 
         if len(argv) > 0:
-            rom_file = argv[0]
-            self.main_window.openRomFile(rom_file)
+            romFile = argv[0]
+            self._mainWindow.openRomFile(romFile)
 
     def exec(self):
-        self.main_window.show()
+        self._mainWindow.show()
 
         # See event() below.
         self.startTimer(200)

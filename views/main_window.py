@@ -41,11 +41,11 @@ class MainWindow(QMainWindow):
         # Sets up a main layout we can add and remove views (aka widgets) from.
         self.setCentralWidget(QWidget())
         layout = QVBoxLayout()
-        layout.addWidget(self.makeMenuBar())
+        layout.addWidget(self._makeMenuBar())
         self.centralWidget().setLayout(layout)
 
-        self.current_view = None
-        self.applyView(makeDefaultView())
+        self._currentView = None
+        self.applyView(_makeDefaultView())
 
     def dragEnterEvent(self, e: QDragEnterEvent) -> None:
         '''Event handler for hovering over the window with a dragged file.
@@ -61,15 +61,15 @@ class MainWindow(QMainWindow):
 
     def applyView(self, viewWidget: QWidget) -> None:
         'Replaces the content of the main window with the given Widget.'
-        if self.current_view:
-            self.centralWidget().layout().removeWidget(self.current_view)
+        if self._currentView:
+            self.centralWidget().layout().removeWidget(self._currentView)
 
-        self.current_view = viewWidget
+        self._currentView = viewWidget
         cast(QVBoxLayout, self.centralWidget().layout()).addWidget(
             viewWidget, 100, Qt.AlignmentFlag.AlignTop
         )
 
-    def makeMenuBar(self) -> QMenuBar:
+    def _makeMenuBar(self) -> QMenuBar:
         'Creates the menu bar widget for the top of the main window.'
         menuBar = QMenuBar()
         fileMenu = menuBar.addMenu('File')
@@ -90,23 +90,23 @@ class MainWindow(QMainWindow):
             caption='Open a GBA/NDS File',
             filter='GBA/NDS file (*.gba *.nds)',
             # Rationale: this parameter properly handles None
-            directory=state.working_dir, # type: ignore[arg-type]
+            directory=state.workingDir, # type: ignore[arg-type]
         )[0]
         # Save this so subsequent file dialogs can open straight to this dir.
-        state.working_dir = dirname(filename)
+        state.workingDir = dirname(filename)
         self.openRomFile(filename)
 
     def openRomFile(self, filepath: str) -> None:
         'Opens a ROM file from a file path.'
         try:
             # TODO needs some kind of detection for invalid files from CLI
-            state.loaded_rom = Rom(filepath)
-            self.applyView(makeEditorTabsView())
+            state.loadedRom = Rom(filepath)
+            self.applyView(_makeEditorTabsView())
         except Exception as e:
             # TODO better error handling. Probably print to window
             print(e)
 
-def makeDefaultView() -> QGroupBox:
+def _makeDefaultView() -> QGroupBox:
     layout = QVBoxLayout()
     layout.addWidget(QLabel('No ROM opened. Open or drag+drop here.'))
 
@@ -115,7 +115,7 @@ def makeDefaultView() -> QGroupBox:
 
     return editorGroupBox
 
-def makeEditorTabsView() -> QTabWidget:
+def _makeEditorTabsView() -> QTabWidget:
     # TODO disable tabs for editors we don't support for the loaded game
     bar = QTabWidget()
     bar.addTab(RomInfoTab(), 'ROM')

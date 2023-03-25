@@ -17,19 +17,19 @@ class Option(Generic[T]):
     '''
 
     def __init__(self, value: Optional[T]):
-        self.value = value
+        self._value = value
 
     def get(self) -> Optional[T]:
-        return self.value
+        return self._value
 
     def getOrDefault(self, default: D) -> 'T | D':
-        return self.value or default
+        return self._value or default
 
     def getOrRaise(self, err=Exception('None.get')) -> T:
-        if self.value is None:
+        if self._value is None:
             raise err
         else:
-            return self.value
+            return self._value
 
     def isEmpty(self) -> bool:
-        return self.value is None
+        return self._value is None
