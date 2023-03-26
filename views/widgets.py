@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
     QHeaderView,
     QLineEdit,
     QTableView,
+    QWidget,
 )
 
 from data.optional import Option
@@ -92,8 +93,8 @@ class StringList(QTableView):
             # Rationale: parent.selectedItemChanged is Callable, idk why mypy isn't seeing that.
             self.selectedItemChanged.connect(parent.selectedItemChanged) # type: ignore[arg-type]
 
-    def __init__(self, items: List[str]):
-        super().__init__()
+    def __init__(self, items: List[str], parent: Optional[QWidget]=None):
+        super().__init__(parent)
         self.horizontalHeader().setStretchLastSection(True)
         self.setAlternatingRowColors(True)
         self.setSelectionMode(QTableView.SelectionMode.SingleSelection)

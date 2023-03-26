@@ -39,13 +39,13 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
 
         # Sets up a main layout we can add and remove views (aka widgets) from.
-        self.setCentralWidget(QWidget())
+        self.setCentralWidget(QWidget(self))
         layout = QVBoxLayout()
         layout.addWidget(self._makeMenuBar())
         self.centralWidget().setLayout(layout)
 
         self._currentView = None
-        self.applyView(_makeDefaultView())
+        self.applyView(self._makeDefaultView())
 
     def dragEnterEvent(self, e: QDragEnterEvent) -> None:
         '''Event handler for hovering over the window with a dragged file.
@@ -71,7 +71,7 @@ class MainWindow(QMainWindow):
 
     def _makeMenuBar(self) -> QMenuBar:
         'Creates the menu bar widget for the top of the main window.'
-        menuBar = QMenuBar()
+        menuBar = QMenuBar(self)
         fileMenu = menuBar.addMenu('File')
 
         openAction   = fileMenu.addAction('Open...')
@@ -79,6 +79,7 @@ class MainWindow(QMainWindow):
         saveAsAction = fileMenu.addAction('Save As...')
 
         openAction.triggered.connect(self.openRomFileDialog)
+        # TODO wire these up to something
         saveAction.triggered.connect(lambda: print('Clicked Save'))
         saveAsAction.triggered.connect(lambda: print('Clicked Save As'))
 
@@ -101,31 +102,31 @@ class MainWindow(QMainWindow):
         try:
             # TODO needs some kind of detection for invalid files from CLI
             state.loadedRom = Rom(filepath)
-            self.applyView(_makeEditorTabsView())
+            self.applyView(self._makeEditorTabsView())
         except Exception as e:
             # TODO better error handling. Probably print to window
             print(e)
 
-def _makeDefaultView() -> QGroupBox:
-    layout = QVBoxLayout()
-    layout.addWidget(QLabel('No ROM opened. Open or drag+drop here.'))
+    def _makeDefaultView(self) -> QGroupBox:
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel('No ROM opened. Open or drag+drop here.'))
 
-    editorGroupBox = QGroupBox()
-    editorGroupBox.setLayout(layout)
+        editorGroupBox = QGroupBox(self)
+        editorGroupBox.setLayout(layout)
 
-    return editorGroupBox
+        return editorGroupBox
 
-def _makeEditorTabsView() -> QTabWidget:
-    # TODO disable tabs for editors we don't support for the loaded game
-    bar = QTabWidget()
-    bar.addTab(RomInfoTab(), 'ROM')
-    bar.addTab(QLabel('TODO'), 'Map')
-    bar.addTab(TextEditTab(), 'Text Editor')
-    bar.addTab(QLabel('TODO'), 'Shops')
-    bar.addTab(QLabel('TODO'), 'Abilities')
-    bar.addTab(QLabel('TODO'), 'Party')
-    bar.addTab(QLabel('TODO'), 'Elemental Data')
-    bar.addTab(QLabel('TODO'), 'Encounters')
-    bar.addTab(QLabel('TODO'), 'Forge')
-    bar.addTab(QLabel('TODO'), 'Sprites')
-    return bar
+    def _makeEditorTabsView(self) -> QTabWidget:
+        # TODO disable tabs for editors we don't support for the loaded game
+        bar = QTabWidget(self)
+        bar.addTab(RomInfoTab(bar), 'ROM')
+        bar.addTab(QLabel('TODO'), 'Map')
+        bar.addTab(TextEditTab(bar), 'Text Editor')
+        bar.addTab(QLabel('TODO'), 'Shops')
+        bar.addTab(QLabel('TODO'), 'Abilities')
+        bar.addTab(QLabel('TODO'), 'Party')
+        bar.addTab(QLabel('TODO'), 'Elemental Data')
+        bar.addTab(QLabel('TODO'), 'Encounters')
+        bar.addTab(QLabel('TODO'), 'Forge')
+        bar.addTab(QLabel('TODO'), 'Sprites')
+        return bar

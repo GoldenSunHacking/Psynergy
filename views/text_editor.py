@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from data.optional import Option
@@ -18,8 +19,8 @@ class TextEditTab(QGroupBox):
     '''Displays the list of all strings in the game,
     an editor for modifying them, and a preview for how they'll look in-game.'''
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent: Optional[QWidget]=None):
+        super().__init__(parent)
 
         self._editingItem: Optional[StringList.Cell] = None
 
@@ -44,31 +45,31 @@ class TextEditTab(QGroupBox):
         self.setLayout(paneLayout)
 
     def _makeSearchBar(self) -> QLineEdit:
-        searchBar = QLineEdit()
+        searchBar = QLineEdit(self)
         searchBar.setPlaceholderText('Search strings')
         return searchBar
 
     def _makeStringTable(self) -> StringList:
         # TODO obviously load real data
         items = ['Test item', 'Something cool here', 'Hi mom'] * 2000
-        stringList = StringList(items)
+        stringList = StringList(items, self)
         return stringList
 
     def _makeEditBox(self) -> 'EditBox':
-        editBox = EditBox()
+        editBox = EditBox(self)
         # TODO apply real whitelist for loaded game
         editBox.setWhitelist('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ')
         editBox.validationFailure.connect(lambda msg: print(msg))
         return editBox
 
     def _makeKeepButton(self) -> QPushButton:
-        button = QPushButton('Keep changes')
+        button = QPushButton('Keep changes', self)
         button.setDisabled(True)
         return button
 
     def _makePreviewBox(self) -> QTextEdit:
         # TODO make this look like a text box from the game, with the proper font.
-        previewBox = QTextEdit()
+        previewBox = QTextEdit(self)
         previewBox.setDisabled(True)
         previewBox.setReadOnly(True)
         previewBox.setPlaceholderText('In-game preview')
@@ -119,8 +120,8 @@ class EditBox(QTextEdit):
     '''Signal for when a user directly edits text.
     Useful to differentiate between edits and loads via `setText()`'''
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent: Optional[QWidget]=None):
+        super().__init__(parent)
         self.setAcceptRichText(False)
         self.setDisabled(True)
         self.setPlaceholderText('Select string to edit')
