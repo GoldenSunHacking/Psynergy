@@ -6,6 +6,7 @@ from PyQt5.QtCore import (
     QItemSelection,
     QItemSelectionModel,
     QModelIndex,
+    QSortFilterProxyModel,
 )
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtWidgets import (
@@ -38,13 +39,14 @@ class StringList(QTableView):
 
     class Column(int):
         'Enum for differentiating table columns'
+        ALL = -1
         ID = 0
         VALUE = 1
 
     class Model(QStandardItemModel):
         'A two-column model for holding strings and their IDs.'
-        def __init__(self):
-            super().__init__()
+        def __init__(self, parent: 'StringList.ProxyModel'):
+            super().__init__(parent)
             self.setColumnCount(2)
             self.setHorizontalHeaderItem(StringList.Column.ID, QStandardItem('ID'))
             # TODO possibly allow overriding this label
@@ -59,6 +61,23 @@ class StringList(QTableView):
             super().__init__(text)
             self.setEditable(False)
 
+    class ProxyModel(QSortFilterProxyModel):
+        '''Enables us to filter strings displayed in the table by some search query.
+        Forwards accessors for the underlying model so this layer can be as
+        transparent as possible.
+        '''
+        def __init__(self, parent: 'StringList') -> None:
+            super().__init__(parent)
+            self.setFilterKeyColumn(StringList.Column.ALL)
+
+        def sourceModel(self) -> 'StringList.Model':
+            return cast(StringList.Model, super().sourceModel())
+
+        def itemFromIndex(self, index: QModelIndex) -> 'StringList.Cell':
+            # See: https://stackoverflow.com/q/50812723
+            sourceIndex = self.mapToSource(index)
+            return self.sourceModel().itemFromIndex(sourceIndex)
+
     class SelectionModel(QItemSelectionModel):
         'Gives us a new signal to fire when only the selected item in the table changes.'
 
@@ -68,7 +87,7 @@ class StringList(QTableView):
         selectedItemChanged = pyqtSignal(Option, Option)
         'Like `selectionChanged`, but only fires when the selected item changes.'
 
-        def __init__(self, model: 'StringList.Model', parent: 'StringList'):
+        def __init__(self, model: 'StringList.ProxyModel', parent: 'StringList'):
             super().__init__(model, parent)
             # Rationale: parent.selectedItemChanged is Callable, idk why mypy isn't seeing that.
             self.selectedItemChanged.connect(parent.selectedItemChanged) # type: ignore[arg-type]
@@ -80,21 +99,31 @@ class StringList(QTableView):
         self.setSelectionMode(QTableView.SelectionMode.SingleSelection)
         self.verticalHeader().hide()
 
-        model = StringList.Model()
+        model = StringList.Model(self)
+
+        # NOTE: Adding items before setting the ProxyModel allows us to skip
+        # running all of the items through the proxy's filter, which
+        # dramatically improves load time.
         for index, string in enumerate(items):
             model.setItem(index, StringList.Column.ID,    StringList.Cell(str(index)))
             model.setItem(index, StringList.Column.VALUE, StringList.Cell(string))
 
-        self.setModel(model)
-        self.setSelectionModel(StringList.SelectionModel(model, self))
+        proxyModel = StringList.ProxyModel(self)
+        proxyModel.setSourceModel(model)
+
+        self.setModel(proxyModel)
+        self.setSelectionModel(StringList.SelectionModel(proxyModel, self))
         self.horizontalHeader().setSectionResizeMode(
             StringList.Column.ID,
             QHeaderView.ResizeMode.ResizeToContents,
         )
 
-    def model(self) -> 'StringList.Model':
+    def model(self) -> 'StringList.ProxyModel':
         'Functionally equivalent to `QTableView.model()`. Just changes return type.'
-        return cast(StringList.Model, super().model())
+        return cast(StringList.ProxyModel, super().model())
+
+    def setSearchText(self, search: str) -> None:
+        self.model().setFilterFixedString(search)
 
     def selectionModel(self) -> 'StringList.SelectionModel':
         'Functionally equivalent to `QTableView.selectionModel()`. Just changes return type.'
@@ -108,27 +137,27 @@ class StringList(QTableView):
         '''
         super().selectionChanged(selected, deselected)
 
-        selectedItem   = self._getSelectionItem(selected)
-        deselectedItem = self._getSelectionItem(deselected)
+        selectedIndex   = self._getSelectionIndex(selected)
+        deselectedIndex = self._getSelectionIndex(deselected)
 
-        if selectedItem is None:
+        if selectedIndex is None:
             return
 
         # Make selecting a value's ID count as selecting the value itself.
         # We always want to do this since it also controls the visual GUI.
-        if selectedItem.column() == StringList.Column.ID:
-            valueIndex = self.model().index(selectedItem.row(), StringList.Column.VALUE)
+        if selectedIndex.column() == StringList.Column.ID:
+            valueIndex = self.model().index(selectedIndex.row(), StringList.Column.VALUE)
             self.selectionModel().select(valueIndex, QItemSelectionModel.SelectionFlag.ClearAndSelect)
-            selectedItem = self.model().itemFromIndex(valueIndex)
+            selectedIndex = valueIndex
 
         # Don't emit signal if we're toggling selection between a value and its ID.
-        if  deselectedItem is not None \
-        and selectedItem.row() == deselectedItem.row():
+        if  deselectedIndex is not None \
+        and selectedIndex.row() == deselectedIndex.row():
             return
 
         self.selectionModel().selectedItemChanged.emit(
-            Option(selectedItem),
-            Option(deselectedItem),
+            Option(self.model().itemFromIndex(selectedIndex)),
+            Option(self.model().itemFromIndex(deselectedIndex) if deselectedIndex else None),
         )
 
     @pyqtSlot(Option, Option)
@@ -140,8 +169,8 @@ class StringList(QTableView):
         'Slot called when the selected item changes.'
         pass
 
-    def _getSelectionItem(self, selection: QItemSelection) -> 'Optional[StringList.Cell]':
-        '''Extracts the model referred to by the current selection.
+    def _getSelectionIndex(self, selection: QItemSelection) -> 'Optional[QModelIndex]':
+        '''Gets the model index from the given selection.
         Assumes the given selection only contains a single model.
         '''
         if selection.isEmpty():
@@ -152,5 +181,4 @@ class StringList(QTableView):
             return None
 
         # This is ok because we set SelectionMode.SingleSelection
-        selectionIndex = indexes[0]
-        return self.model().itemFromIndex(selectionIndex)
+        return indexes[0]

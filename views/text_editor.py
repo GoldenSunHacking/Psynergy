@@ -100,6 +100,11 @@ class TextEditTab(QGroupBox):
             self._keepButton.setDisabled(True)
         self._keepButton.clicked.connect(onKeepButtonClicked)
 
+        # Apply search query to string list
+        def onSearchboxChanged() -> None:
+            self._stringTable.setSearchText(self._searchBar.text())
+        self._searchBar.textChanged.connect(onSearchboxChanged)
+
 
 class EditBox(QTextEdit):
     '''A control for editing a game string.
