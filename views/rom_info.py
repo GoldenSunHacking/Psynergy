@@ -7,8 +7,6 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from data.rom_loader import Rom
-
 from .state import state
 from .widgets import ReadOnlyLine
 
@@ -17,13 +15,16 @@ class RomInfoTab(QGroupBox):
     def __init__(self, parent: Optional[QWidget]=None):
         super().__init__(parent)
 
-        loaded_rom = cast(Rom, state.loadedRom)
-        pathLine    = ReadOnlyLine(loaded_rom.file_path)
-        nameLine    = ReadOnlyLine(loaded_rom.game_name)
-        intNameLine = ReadOnlyLine(loaded_rom.game_internal_name)
-        gameIdLine  = ReadOnlyLine(loaded_rom.game_id)
-        sizeLine    = ReadOnlyLine(str(len(loaded_rom.rom_binary_data)))
-        crc32Line   = ReadOnlyLine(loaded_rom.crc32)
+        loadedRom = state.loadedRom
+        if loadedRom is None:
+            raise Exception('RomInfoTab instantiated without ROM loaded.')
+
+        pathLine    = ReadOnlyLine(loadedRom.filePath())
+        nameLine    = ReadOnlyLine(loadedRom.gameName())
+        intNameLine = ReadOnlyLine(loadedRom.header().internalName())
+        gameIdLine  = ReadOnlyLine(loadedRom.header().fullGameId())
+        sizeLine    = ReadOnlyLine(str(loadedRom.data().size()))
+        crc32Line   = ReadOnlyLine(loadedRom.data().crc32())
 
         layout = QGridLayout(self)
 

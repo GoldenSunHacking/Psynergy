@@ -1,8 +1,7 @@
 from binascii import crc32
-from construct import Struct, Padding, GreedyString, FixedSized
 from dataclasses import dataclass
-
-UNKNOWN_NAME = '<Unknown>'
+from typing import cast, Optional
+import struct
 
 @dataclass
 class RomInfo:
@@ -192,35 +191,132 @@ ROM_INFO_MAP = {
     ),
 }
 
+class RomData:
+    '''Holds the data of a ROM file in a `memoryview`.
 
-# This is different from gsmagic but matches the ROM info in mGBA.
-GbaHeader = Struct(
-    Padding(0xA0),
-    'internal_name' / FixedSized(12, GreedyString(encoding='ASCII')),
-    'game_id' / FixedSized(4, GreedyString(encoding='ASCII')),
-)
+    Contains some basic functions for reading and writing arbitrary values
+    in the data. Does not enforce any sort of constraints on the data, such
+    as invalid memory values.
+
+    All operations are little-endian.
+    '''
+    def __init__(self, filePath: str):
+        self.romFile = filePath
+        with open(filePath, 'rb') as romFile:
+            self._romData = memoryview(bytearray(romFile.read()))
+
+    def __len__(self):
+        return len(self._romData)
+
+    def crc32(self) -> str:
+        'The hexadecimal CRC32 hash of the binary data.'
+        return hex(crc32(self._romData))[2:]
+
+    def size(self) -> int:
+        '''An alias for `len(self)` to avoid that awkward thing where
+        everything else uses a function, but size needs `len()`.'''
+        return len(self)
+
+    def getInt8(self, index: int) -> int:
+        'Reads an 8-bit, unsigned, little-endian int from `index`.'
+        return struct.unpack_from('<B', self._romData, index)[0]
+
+    def getInt16(self, index: int) -> int:
+        'Reads a 16-bit, unsigned, little-endian int from `index`.'
+        return struct.unpack_from('<H', self._romData, index)[0]
+
+    def getInt32(self, index: int) -> int:
+        'Reads a 32-bit, unsigned, little-endian int from `index`.'
+        return struct.unpack_from('<I', self._romData, index)[0]
+
+    def setInt8(self, index: int, value: int) -> None:
+        'Writes an 8-bit, unsigned, little-endian int to `index`.'
+        struct.pack_into('<B', self._romData, index, value)
+
+    def setInt16(self, index: int, value: int) -> None:
+        'Writes a 16-bit, unsigned, little-endian int to `index`.'
+        struct.pack_into('<H', self._romData, index, value)
+
+    def setInt32(self, index: int, value: int) -> None:
+        'Writes a 32-bit, unsigned, little-endian int to `index`.'
+        struct.pack_into('<I', self._romData, index, value)
+
+    def getAsciiString(self, index: int, length: int) -> str:
+        '''Reads a chunk of memory as an ASCII string.
+        :raises
+            UnicodeDecodeError: if the data isn't a valid ASCII string.
+        '''
+        return cast(
+            bytes,
+            struct.unpack_from(f'<{length}s', self._romData, index)[0],
+        ).decode('ASCII')
+
+    # NOTE: There is no setAsciiString because it would be a pain in the ass.
+
+
+GBA_HEADER_NAME_ADDR = 0xA0
+GBA_HEADER_NAME_LEN = 12
+GBA_HEADER_ID_ADDR = GBA_HEADER_NAME_ADDR + GBA_HEADER_NAME_LEN
+GBA_HEADER_ID_LEN = 4
+
+class GbaHeader:
+    'An accessor over `RomData` for reading GBA ROM headers.'
+    def __init__(self, romData: RomData):
+        self._romData = romData
+
+    def internalName(self) -> str:
+        '''Returns the 12-character internal name of the ROM.
+        Matches name reported in mGBA.'''
+        return self._romData.getAsciiString(GBA_HEADER_NAME_ADDR, GBA_HEADER_NAME_LEN)
+
+    def gameId(self) -> str:
+        '''Returns the 4-character game ID of the ROM.
+        This is unique to the game version.'''
+        return self._romData.getAsciiString(GBA_HEADER_ID_ADDR, GBA_HEADER_ID_LEN)
+
+    def fullGameId(self) -> str:
+        'Returns the full game ID as reported by mGBA.'
+        return f'AGB-{self.gameId()}'
 
 # TODO this is only reaaaaally a GBA Rom. We'll eventually want to differentiate between NDS and GBA
 class Rom:
+    '''The entry point for reading and manipulating ROM data.
+    Contains handles for working with things like ROM headers and string lists.
+    '''
+    # TODO this might be better in RomInfo
+    UNKNOWN_NAME = '<Unknown>'
+
     def __init__(self, filepath: str):
-        self.file_path = filepath
-        'Path to the ROM file on disk.'
+        self._data = RomData(filepath)
+        self._filePath = filepath
+        self._header = GbaHeader(self._data)
 
-        with open(filepath, 'rb') as rom_file:
-            self.rom_binary_data = rom_file.read()
-            'The entire ROM data as a single binary byte blob.'
+    def data(self) -> RomData:
+        'Returns the underlying ROM data.'
+        return self._data
 
-        self.crc32 = hex(crc32(self.rom_binary_data))[2:]
-        'The hexadecimal CRC32 hash of the binary data.'
+    def filePath(self) -> str:
+        'Returns the path to the ROM file on disk.'
+        return self._filePath
 
-        header = GbaHeader.parse(self.rom_binary_data)
+    def header(self) -> GbaHeader:
+        return self._header
 
-        self.game_id = f'AGB-{header.game_id}'
-        'The game ID. This is unique to the game version. Matches ID returned by mGBA.'
+    # There is no internal human-readable name, so we forward this specific
+    # value from RomInfo. All other known-good fields should be read using
+    # `matchedInfo().whatever`
+    def gameName(self) -> str:
+        '''Returns the ROM's human-readable name as reported by mGBA.'''
+        info = self.matchedInfo()
+        return info.name if info else Rom.UNKNOWN_NAME
 
-        self.game_internal_name: str = header.internal_name
-        'The 12 character internal name.'
-
-        info = ROM_INFO_MAP.get(header.game_id)
-        self.game_name = info.name if info else UNKNOWN_NAME
-        'The human-readable name for the game. Stolen from mGBA.'
+    # TODO this is a little odd. This looks up known-good ROM info by game ID,
+    # but by accessing it like this, we're sort of implying this data is a
+    # property of the loaded ROM, rather than a known-good thing we're supposed
+    # to test the ROM against.
+    # We could instead ask callers to use RomInfo to take an ID (or even a "Rom")
+    def matchedInfo(self) -> Optional[RomInfo]:
+        '''Returns the known-good information for this ROM, matched by game ID.
+        This infomation is pre-populated, and can be used to validate loaded data.
+        '''
+        return ROM_INFO_MAP.get(self.header().gameId())
