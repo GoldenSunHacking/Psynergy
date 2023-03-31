@@ -1,7 +1,8 @@
-from binascii import crc32
 from dataclasses import dataclass
-from typing import cast, Optional
-import struct
+from typing import Optional
+
+from .rom_data import RomData
+from .rom_header import GbaHeader
 
 @dataclass
 class RomInfo:
@@ -190,93 +191,6 @@ ROM_INFO_MAP = {
         size=16777216,
     ),
 }
-
-class RomData:
-    '''Holds the data of a ROM file in a `memoryview`.
-
-    Contains some basic functions for reading and writing arbitrary values
-    in the data. Does not enforce any sort of constraints on the data, such
-    as invalid memory values.
-
-    All operations are little-endian.
-    '''
-    def __init__(self, filePath: str):
-        self.romFile = filePath
-        with open(filePath, 'rb') as romFile:
-            self._romData = memoryview(bytearray(romFile.read()))
-
-    def __len__(self):
-        return len(self._romData)
-
-    def crc32(self) -> str:
-        'The hexadecimal CRC32 hash of the binary data.'
-        return hex(crc32(self._romData))[2:]
-
-    def size(self) -> int:
-        '''An alias for `len(self)` to avoid that awkward thing where
-        everything else uses a function, but size needs `len()`.'''
-        return len(self)
-
-    def getInt8(self, index: int) -> int:
-        'Reads an 8-bit, unsigned, little-endian int from `index`.'
-        return struct.unpack_from('<B', self._romData, index)[0]
-
-    def getInt16(self, index: int) -> int:
-        'Reads a 16-bit, unsigned, little-endian int from `index`.'
-        return struct.unpack_from('<H', self._romData, index)[0]
-
-    def getInt32(self, index: int) -> int:
-        'Reads a 32-bit, unsigned, little-endian int from `index`.'
-        return struct.unpack_from('<I', self._romData, index)[0]
-
-    def setInt8(self, index: int, value: int) -> None:
-        'Writes an 8-bit, unsigned, little-endian int to `index`.'
-        struct.pack_into('<B', self._romData, index, value)
-
-    def setInt16(self, index: int, value: int) -> None:
-        'Writes a 16-bit, unsigned, little-endian int to `index`.'
-        struct.pack_into('<H', self._romData, index, value)
-
-    def setInt32(self, index: int, value: int) -> None:
-        'Writes a 32-bit, unsigned, little-endian int to `index`.'
-        struct.pack_into('<I', self._romData, index, value)
-
-    def getAsciiString(self, index: int, length: int) -> str:
-        '''Reads a chunk of memory as an ASCII string.
-        :raises
-            UnicodeDecodeError: if the data isn't a valid ASCII string.
-        '''
-        return cast(
-            bytes,
-            struct.unpack_from(f'<{length}s', self._romData, index)[0],
-        ).decode('ASCII')
-
-    # NOTE: There is no setAsciiString because it would be a pain in the ass.
-
-
-GBA_HEADER_NAME_ADDR = 0xA0
-GBA_HEADER_NAME_LEN = 12
-GBA_HEADER_ID_ADDR = GBA_HEADER_NAME_ADDR + GBA_HEADER_NAME_LEN
-GBA_HEADER_ID_LEN = 4
-
-class GbaHeader:
-    'An accessor over `RomData` for reading GBA ROM headers.'
-    def __init__(self, romData: RomData):
-        self._romData = romData
-
-    def internalName(self) -> str:
-        '''Returns the 12-character internal name of the ROM.
-        Matches name reported in mGBA.'''
-        return self._romData.getAsciiString(GBA_HEADER_NAME_ADDR, GBA_HEADER_NAME_LEN)
-
-    def gameId(self) -> str:
-        '''Returns the 4-character game ID of the ROM.
-        This is unique to the game version.'''
-        return self._romData.getAsciiString(GBA_HEADER_ID_ADDR, GBA_HEADER_ID_LEN)
-
-    def fullGameId(self) -> str:
-        'Returns the full game ID as reported by mGBA.'
-        return f'AGB-{self.gameId()}'
 
 # TODO this is only reaaaaally a GBA Rom. We'll eventually want to differentiate between NDS and GBA
 class Rom:
