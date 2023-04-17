@@ -36,6 +36,9 @@ integer. This integer is used as an index into the tree's character lookup
 table to get the matching character (i.e. the next character in the string).
 NOTE: Each character in this lookup table is encoded using 12 bits!
 
+If a character never appears in the game's script (such as "^"), it will not
+have any data at all in this block.
+
 TODO how do we know when we've reached a leaf in the tree?
 
 Characters in this block are in order corresponding to their numeric code.
@@ -43,16 +46,21 @@ For English, this is ASCII order.
 
 2. Character Offset Pointer Table
 
-Since each character's tree block can be a different size, we can't just index
-into the tree block. That's where this table comes in. This is a table of
-16 bit pointers that point at each character's tree. Like the character trees,
-the order of the pointers in this table corresponds to the character's
-numeric code. This table has a fixed size, so we can index into it as a proxy
-for the tree block.
+Since each character's tree block can be a different size (and non-occurring
+chars are skipped entirely), we can't just index into the tree block.
+That's where this table comes in. This is a table of 16 bit pointers that point
+at each character's tree. Like the character trees, the order of the pointers
+in this table corresponds to the character's numeric code. This table has a
+fixed size, so we can index into it as a proxy for the tree block.
 
 These pointers are relative to the beginning of the character tree block,
 hence "offset pointer". To get the absolute address they refer to, you do
 `[start of char tree block pointer] + [offset pointer]`.
+
+NOTE: there are two special pointer values to look out for:
+0x8000 - A dummy pointer that indicates the character has no tree data.
+0x0    - Padding at the end of the table
+        (presumably to align the bytes for the Char Data Pointer Pair).
 
 These pointers point to the address between the character's lookup table and
 its tree. Remember, the character lookup table is reversed, so this address is
@@ -100,9 +108,12 @@ TODO what points at this?
 The 500 IQ sage who came up with this one must have been doing coke with Jesus.
 '''
 
+from itertools import filterfalse
+from math import ceil
 from typing import Iterator, List
 
 #from dahuffman import HuffmanCodec
+from more_itertools import pairwise
 
 
 from rom_data import RomData
@@ -117,6 +128,9 @@ from rom_data import RomData
 # TODO better name for this. This is where the game programming stops
 # and game data begins, so data pointers are relative to this.
 ROM_OFFSET = 0x08_00_00_00
+
+NO_CHAR_OFFSET = 0x8000
+'Dummy offset used when a character has no tree.'
 
 class CharPointerPair:
     'Accessor over `RomData` for a character data pointer pair.'
@@ -147,7 +161,10 @@ class CharPointerPair:
         }])'''
 
 class CharTree:
-    'Accessor over `RomData` for a single Huffman character tree.'
+    '''The loaded data for a single Huffman character tree.
+
+    NOTE: Not an accessor over `RomData`.
+    '''
 
     @staticmethod
     def isValidChar(char: int) -> bool:
@@ -155,36 +172,32 @@ class CharTree:
         # TODO this needs updated to support other languages.
         return 0x00 < char < 0x7E
 
-    def __init__(self, romData: RomData, char: str, startAddress: int):
-        '''
-        romData: The loaded ROM data.
-
-        char: The character this `CharTree` is for.
-
-        startAddress: The start of the tree data.
-        NOTE: the start of the lookup table is the byte BEFORE this one.
-        '''
+    def __init__(self, char: str, offset: int):
         self._char = char
-        self._romData = romData
-        self._startAddress = startAddress
-
-        self._lookupTable: 'List[str]' = []
+        self._lookupTable: 'List[str]|None' = None
         self._treeData: 'RomData|None' = None
 
-        self._loadLookupTable()
-        # Can't loadTreeData just yet. We need all the lookup tables first.
+        # I don't love storing this value since it directly depends on the
+        # underlying memory, but it makes memory actions much simpler
+        # in CharTreeBlock.
+        self._offset = offset
 
-    def _loadLookupTable(self):
-        'Reads characters from the ROM data into the char lookup table.'
-        # _startAddress is the start of the TREE data.
+    def empty(self) -> bool:
+        'Returns whether or not this is an empty tree (i.e. no character data).'
+        return self._lookupTable is None and self._treeData is None
+
+    def loadLookupTable(self, romData: RomData, startAddress: int):
+        '''Reads characters from `romData` starting at `startAddress`
+        into the char lookup table.'''
+        self._lookupTable = []
+
+        # startAddress is the start of the TREE data.
         # The previous byte is the start of the lookup table.
-        i = self._startAddress - 1
-        while True:
+        for addr in range(startAddress - 1, 0, -3):
             # Remember, these are 12-bit chars and this table is reversed.
-            partA = self._romData.getInt8(i - 0)
-            partB = self._romData.getInt8(i - 1)
-            partC = self._romData.getInt8(i - 2)
-            i -= 3
+            partA = romData.getInt8(addr - 0)
+            partB = romData.getInt8(addr - 1)
+            partC = romData.getInt8(addr - 2)
 
             char1 = (partA << 4) | (partB >> 4)
             char2 = ((partB & 0xF) << 8) | partC
@@ -202,11 +215,25 @@ class CharTree:
             else:
                 break
 
-    def loadTreeData(self):
-        pass
+    def loadTreeData(self, romData: RomData, startAddress: int, endAddress: int):
+        'Reads the `romData` from `startAddress` to `endAddress` as a tree.'
+        self._treeData = romData.getSliceRange(startAddress, endAddress)
 
-    def __len__(self) -> int:
-        return len(self._lookupTable)
+    def sizeLookup(self) -> int:
+        '''Returns the size of the character lookup table, in bytes.
+
+        Characters are encoded using 12-bits, so this value will be larger
+        than the length of the lookup table.
+        '''
+        if self._lookupTable is None:
+            raise Exception('Char lookup table not loaded yet!')
+        return ceil((len(self._lookupTable) * 12) / 8)
+
+    def sizeTree(self) -> int:
+        'Returns the size of the tree data, in bytes.'
+        if self._treeData is None:
+            raise Exception('Tree data not loaded yet!')
+        return len(self._treeData)
 
     def __str__(self) -> str:
         return f'{CharTree.__name__}({repr(self._char)}, {self._lookupTable})'
@@ -217,19 +244,56 @@ class CharTreeBlock:
         self._romData = romData
         self._charTrees: List[CharTree] = []
 
+        self._loadCharLookupTables(charPtrs)
         self._loadCharTrees(charPtrs)
 
-    def _loadCharTrees(self, charPtrs: CharPointerPair):
-        startAddress = charPtrs.getLookupTableAddress()
-        endAddress = charPtrs.getPairAddress()
+    def _loadCharLookupTables(self, charPtrs: CharPointerPair):
+        'Reads in character lookup tables for each char in the offset table.'
+        treeBlockStartAddress = charPtrs.getTreeBlockAddress()
+        lookupStartAddress = charPtrs.getLookupTableAddress()
+        lookupEndAddress = charPtrs.getPairAddress()
 
-        for charCode, ptrAddress in enumerate(range(startAddress, endAddress, 2)):
-            charTreeAddress = charPtrs.getTreeBlockAddress() + self._romData.getInt16(ptrAddress)
-            self._charTrees.append(CharTree(
-                romData      = self._romData,
-                char         = chr(charCode),
-                startAddress = charTreeAddress,
-            ))
+        # Iterate through the table of 16-bit address offsets for each char.
+        for charCode, ptrOffsetAddress in enumerate(range(lookupStartAddress, lookupEndAddress, 2)):
+            offset = self._romData.getInt16(ptrOffsetAddress)
+
+            if offset == 0x0:
+                # Load complete, we've reached the end-of-table padding.
+                return
+
+            charTree = CharTree(chr(charCode), offset)
+
+            if offset != NO_CHAR_OFFSET:
+                charTreeAddress = treeBlockStartAddress + offset
+                charTree.loadLookupTable(self._romData, charTreeAddress)
+
+            self._charTrees.append(charTree)
+
+    def _loadCharTrees(self, charPtrs: CharPointerPair):
+        '''Reads in character tree data.
+
+        This assumes a char tree ends where the next char's lookup table
+        begins, so this requires all char tree lookup tables have already
+        been read in.
+        '''
+        treeBlockStartAddress = charPtrs.getTreeBlockAddress()
+
+        # Empty trees don't appear in the data at all.
+        nonEmptyTrees = filterfalse(CharTree.empty, self._charTrees)
+        for prevTree, curTree in pairwise(nonEmptyTrees):
+            prevTree.loadTreeData(
+                romData=self._romData,
+                startAddress=(treeBlockStartAddress + prevTree._offset),
+                endAddress=(treeBlockStartAddress + curTree._offset - curTree.sizeLookup()),
+            )
+
+        # Last tree ends where lookup table begins.
+        # Python weirdness: curTree is still set from above for loop.
+        curTree.loadTreeData(
+            romData=self._romData,
+            startAddress=(treeBlockStartAddress + curTree._offset),
+            endAddress=(charPtrs.getLookupTableAddress() - 1),
+        )
 
     def __getitem__(self, key: 'str|int') -> CharTree:
         if isinstance(key, str):
@@ -242,9 +306,6 @@ class CharTreeBlock:
     def __iter__(self) -> Iterator[CharTree]:
         return iter(self._charTrees)
 
-    def __len__(self) -> int:
-        return len(self._charTrees)
-
     def __str__(self) -> str:
         return f'{CharTreeBlock.__name__}({{\n' + \
             '\n'.join(map(lambda tree: f'\t{tree}', self._charTrees)) + \
@@ -255,8 +316,17 @@ class CharTreeBlock:
 if __name__ == '__main__':
     from sys import argv, exit
 
-    data = RomData(argv[1])
+    data = RomData.fromFile(argv[1])
     pair = CharPointerPair(data, 0x3842c)
     print(pair)
     trees = CharTreeBlock(data, pair)
-    print(trees)
+    print('TREE BLOCK START', hex(pair.getTreeBlockAddress()))
+    for tree in trees:
+        if tree.empty():
+            print(f'Tree {repr(tree._char).rjust(6)}, [None, None, None]')
+            continue
+        blockStart = pair.getTreeBlockAddress()
+        charStart = blockStart + tree._offset
+        lookupEnd = blockStart + tree._offset - tree.sizeLookup()
+        treeEnd = blockStart + tree._offset + tree.sizeTree()
+        print(f'Tree {repr(tree._char).rjust(6)} [{hex(lookupEnd)}, {hex(charStart)}, {hex(treeEnd)}] [{tree.sizeLookup()}, {tree.sizeTree()}]')

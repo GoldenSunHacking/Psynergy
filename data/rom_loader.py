@@ -201,7 +201,7 @@ class Rom:
     UNKNOWN_NAME = '<Unknown>'
 
     def __init__(self, filepath: str):
-        self._data = RomData(filepath)
+        self._data = RomData.fromFile(filepath)
         self._filePath = filepath
         self._header = GbaHeader(self._data)
 
