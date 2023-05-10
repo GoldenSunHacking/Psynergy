@@ -1,0 +1,9 @@
+# TODO Replace this with a better dependency management thing
+PyQt5==5.15.4
+python-git-info==0.8.3
+
+# (if we were on 3.10 we wouldn't need this, but we're on 3.8. For now...)
+more-itertools==9.1.0
+
+# Only needed in dev
+mypy==1.1.1
